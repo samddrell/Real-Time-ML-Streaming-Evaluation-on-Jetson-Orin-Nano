@@ -23,7 +23,7 @@ TEST(ImageSaveTest, SaveJPGReturnsTrueAndCreatesFile) {
     Image img(width, height);
 
     // Call Save_jpg and assert it returns true
-    EXPECT_TRUE(img.Save_jpg(const_cast<char*>(filename), quality));
+    EXPECT_TRUE(img.Save_jpeg(const_cast<char*>(filename), quality));
 
     // Optionally: Check if the file was created
     std::ifstream f(filename);
@@ -130,17 +130,28 @@ TEST(ImageTest, SaveAndReadSMPTEColorBand)
     delete check_image;
 }
 
-TEST(ImageTest, SaveGradient)
+TEST(ImageTest, SaveandReadGradient)
 {
     int height = 255;
     int width = 255;
     int quality = 100; // Quality for JPEG
+    std::string filename1 = "gradient.jpeg";
+    std::string filename2 = "gradient_out.ppm";
+    std::string error1 = "Failed to save gradient";
+    std::string error2 = "Failed to read gradient";
+    std::string error3 = "Image data and dimensions do not match!";
 
     Image* gradient = new Image(width, height);
     gradient = make_gradient(gradient, height, width);
 
     // Save the image
-    EXPECT_TRUE(gradient->Save_jpg("gradient.jpeg", quality)) << "Failed to save gradient";
+    EXPECT_TRUE(gradient->Save_jpeg(filename1.c_str(), quality)) << error1.c_str();
+
+    // Read the image back
+    Image* check_image = new Image();
+    EXPECT_TRUE(check_image->Read_png(filename1.c_str())) << error2.c_str();
+
+    EXPECT_TRUE(*check_image == *gradient) << error3.c_str();
 
     delete gradient;
 }

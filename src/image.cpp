@@ -23,6 +23,7 @@
 #define strncasecmp  strnicmp
 #endif
 
+// NOTE: Control F to find all FIXME's, Debugging Print's, and QUESTION's. These should be corrected (if applicable) and removed before the next release.
 
 
 // #define STB_IMAGE_WRITE_IMPLEMENTATION
@@ -39,7 +40,7 @@ struct custom_error_mgr {
 };
 
 // Function alias
-typedef struct custom_error_mgr* custom_error_ptr;
+typedef struct custom_error_mgr* custom_error_ptr; // QUESTION: What and why?
 
 void custom_error_exit(j_common_ptr cinfo) {
     custom_error_ptr myerr = (custom_error_ptr)cinfo->err;
@@ -48,6 +49,34 @@ void custom_error_exit(j_common_ptr cinfo) {
     (*cinfo->err->output_message)(cinfo);
 
     // Jump back to setjmp
+    longjmp(myerr->setjmp_buffer, 1);
+}
+
+///////////////////////////////////////////////////////////////////////
+// Custom error handler for JPEG - Reading
+///////////////////////////////////////////////////////////////////////
+struct my_error_mgr
+{
+    struct jpeg_error_mgr pub; /* "public" fields */
+
+    jmp_buf setjmp_buffer; /* for return to caller */
+};
+
+typedef struct my_error_mgr *my_error_ptr; // QUESTION: What and why?
+
+///////////////////////////////////////////////////////////////////////
+// routine to replace the standard error_exit method - Reading
+///////////////////////////////////////////////////////////////////////
+void my_error_exit(j_common_ptr cinfo)
+{
+    /* cinfo->err really points to a my_error_mgr struct, so coerce pointer */
+    my_error_ptr myerr = (my_error_ptr)cinfo->err;
+
+    /* Always display the message. */
+    /* We could postpone this until after returning, if we chose. */
+    (*cinfo->err->output_message)(cinfo);
+
+    /* Return control to the setjmp point */
     longjmp(myerr->setjmp_buffer, 1);
 }
 
@@ -82,7 +111,6 @@ Image::~Image() // Free memory
         m_data = nullptr;
     }
 }
-
 
 ///////////////////////////////////////////////////////////////////////
 // Overloaded equality operator
@@ -435,7 +463,7 @@ bool Image::Read_png(std::string filePath)
 ///////////////////////////////////////////////////////////////////////
 // Save the image using turbo jpeg
 ///////////////////////////////////////////////////////////////////////
-bool Image::Save_jpg(char *filename, int quality)
+bool Image::Save_jpeg(std::string filename, int quality)
 {
     // Create a jpeg compression object
     struct jpeg_compress_struct cinfo;
@@ -471,7 +499,7 @@ bool Image::Save_jpg(char *filename, int quality)
     }
 
     // Step 2 Specify data destination
-    if ((outfile = fopen(filename, "wb")) == NULL)
+    if ((outfile = fopen(filename.c_str(), "wb")) == NULL)
     {
         jpeg_destroy_compress(&cinfo);
         return false; // Exit if the file cannot be opened
@@ -509,4 +537,106 @@ bool Image::Save_jpg(char *filename, int quality)
     jpeg_destroy_compress(&cinfo); // Release the JPEG compression object
     delete[] row_pointers;
     return true; // Return true if successful
+}
+
+///////////////////////////////////////////////////////////////////////
+// Public Encapsulation to Read the image using turbo jpeg
+///////////////////////////////////////////////////////////////////////
+int Image::Read_jpeg_pub(std::string infilename)
+{
+    struct jpeg_decompress_struct cinfo; // QUESTION: I don't understand this syntax and where is this struct defined?
+
+    return Read_jpeg_priv(&cinfo, infilename);
+}
+
+///////////////////////////////////////////////////////////////////////
+// Read the image using turbo jpeg
+// NOTE:
+//      We call the libjpeg API from within a separate function, because 
+//      modifying the local non-volatile jpeg_decompress_struct instance 
+//      below the setjmp() return point and then accessing the instance 
+//      after setjmp() returns would result in undefined behavior that 
+//      may potentially overwrite all or part of the structure.
+//      (This note was quoted from the libjpeg example code)
+///////////////////////////////////////////////////////////////////////
+int Image::Read_jpeg_priv(struct jpeg_decompress_struct *cinfo, std::string infilename)
+{
+    struct my_error_mgr jerr;   // Create an instance of our custom error manager
+    FILE *infile;               // source file
+    JSAMPARRAY buffer = NULL;   // Output row buffer 
+    int col;
+    int row_stride;             // physical row width in output buffer 
+
+    // Open the input and output files so they can be closed if we long jump.
+    if ((infile = fopen(infilename.c_str(), "rb")) == NULL)
+    {
+        fprintf(stderr, "can't open %s\n", infilename.c_str());
+        return 0;
+    }
+
+    // Step 1: allocate and initialize JPEG decompression object
+
+    cinfo->err = jpeg_std_error(&jerr.pub);
+    jerr.pub.error_exit = my_error_exit; // then override error_exit.
+
+    // Set up the jump point for error handling
+    if (setjmp(jerr.setjmp_buffer))
+    {
+        //Clean up the JPEG object, close the input file, and return.
+        jpeg_destroy_decompress(cinfo);
+        fclose(infile);
+        return 0;
+    }
+
+    // Initialize the JPEG decompression object.
+    jpeg_create_decompress(cinfo);
+
+    // Step 2: specify data source (eg, a file)
+
+    jpeg_stdio_src(cinfo, infile);
+
+    // Step 3: read file parameters with jpeg_read_header()
+
+    // This is type-cast as void because we are only reading entire images
+    (void)jpeg_read_header(cinfo, TRUE);
+
+
+    // Step 4: set parameters for decompression 
+    //      Note: This step is optional, but it allows you to change
+    //      the default parameters set by jpeg_read_header().
+    // Step 5: Start decompressor 
+
+    // This is type-cast as void because we are only reading entire images
+    (void)jpeg_start_decompress(cinfo);
+
+    row_stride = cinfo->output_width * cinfo->output_components;
+    
+    // This buffer is a stepping block for one row of output pixels in between the 
+    //      input jpeg and the output ppm
+    buffer = (*cinfo->mem->alloc_sarray)((j_common_ptr)cinfo, JPOOL_IMAGE, row_stride, 1);
+
+    // Write to data member m_data adaptation
+    m_data = new uint8_t[m_width * m_height * 3];
+
+
+    // Step 6: Line by line, read jpeg to ppm
+    while (cinfo->output_scanline < cinfo->output_height)
+    {
+        buffer[0] = m_data + (cinfo->output_scanline * row_stride);
+        (void)jpeg_read_scanlines(cinfo, buffer, 1);
+        // fwrite(buffer[0], 1, row_stride, outfile);
+    }
+
+    /* Step 7: Finish decompression */
+
+    // This is type-cast as void because we are only reading entire images
+    (void)jpeg_finish_decompress(cinfo);
+
+    /* Step 8: Release JPEG decompression object */
+
+    jpeg_destroy_decompress(cinfo);
+
+    fclose(infile);
+
+    return 1; // We want to return 1 on success, 0 on error.
 }

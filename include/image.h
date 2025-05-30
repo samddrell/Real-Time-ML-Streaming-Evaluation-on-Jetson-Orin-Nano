@@ -8,6 +8,8 @@ class Image
     private:
         int m_width;
         int m_height;
+        int Read_jpeg_priv(struct jpeg_decompress_struct *cinfo,
+                        std::string infilename);
 
     public:
         uint8_t *m_data;
@@ -28,7 +30,8 @@ class Image
         bool Save_png(std::string filePath); // Save the image to a png file
         bool Read_png(std::string filePath); // Read the image from a png file
 
-        bool Save_jpg(char *filename, int quality); // Save the image to a jpg file
+        bool Save_jpeg(std::string filename, int quality); // Save the image to a jpg file
+        int Read_jpeg_pub(std::string infilename);
 
         ~Image(); // Free memory
 };
