@@ -1,0 +1,642 @@
+// Includes
+#include <cstdint>     // for uint8_t
+#include <string.h>      // for std::string and std::memcpy
+#include <iostream>     // for std::cout
+#include <stdio.h>
+#include <cstdio>
+#include <stdlib.h>
+
+#include "image.h" // for Image class
+
+#include <png.h>
+#include "jpeglib.h"
+#include "jerror.h"
+#include <setjmp.h> // May not be used
+// #include <jpeglib12.h>
+
+#ifdef _MSC_VER
+#define _CRT_SECURE_NO_DEPRECATE
+#endif
+
+#ifdef _WIN32
+#define strcasecmp  stricmp
+#define strncasecmp  strnicmp
+#endif
+
+// NOTE: Control F to find all FIXME's, Debugging Print's, and QUESTION's. These should be corrected (if applicable) and removed before the next release.
+
+
+// #define STB_IMAGE_WRITE_IMPLEMENTATION
+// #define STBI_MSC_SECURE_CRT
+// #include "stb_image_write.h"
+
+///////////////////////////////////////////////////////////////////////
+// FIXME Custom error handler for JPEG
+// FIXME Should this be in a separate file?
+///////////////////////////////////////////////////////////////////////
+struct custom_error_mgr {
+    jpeg_error_mgr pub;       // "Inherit" base JPEG error manager
+    jmp_buf setjmp_buffer;    // Jump buffer for error recovery
+};
+
+// Function alias
+typedef struct custom_error_mgr* custom_error_ptr; // QUESTION: What and why?
+
+void custom_error_exit(j_common_ptr cinfo) {
+    custom_error_ptr myerr = (custom_error_ptr)cinfo->err;
+
+    // Optional: print the default message
+    (*cinfo->err->output_message)(cinfo);
+
+    // Jump back to setjmp
+    longjmp(myerr->setjmp_buffer, 1);
+}
+
+///////////////////////////////////////////////////////////////////////
+// Custom error handler for JPEG - Reading
+///////////////////////////////////////////////////////////////////////
+struct my_error_mgr
+{
+    struct jpeg_error_mgr pub; /* "public" fields */
+
+    jmp_buf setjmp_buffer; /* for return to caller */
+};
+
+typedef struct my_error_mgr *my_error_ptr; // QUESTION: What and why?
+
+///////////////////////////////////////////////////////////////////////
+// routine to replace the standard error_exit method - Reading
+///////////////////////////////////////////////////////////////////////
+void my_error_exit(j_common_ptr cinfo)
+{
+    /* cinfo->err really points to a my_error_mgr struct, so coerce pointer */
+    my_error_ptr myerr = (my_error_ptr)cinfo->err;
+
+    /* Always display the message. */
+    /* We could postpone this until after returning, if we chose. */
+    (*cinfo->err->output_message)(cinfo);
+
+    /* Return control to the setjmp point */
+    longjmp(myerr->setjmp_buffer, 1);
+}
+
+///////////////////////////////////////////////////////////////////////
+// Image class constructor
+///////////////////////////////////////////////////////////////////////
+Image::Image() : m_width(0), m_height(0), m_data(nullptr) {}
+
+///////////////////////////////////////////////////////////////////////
+// Image class constructor
+///////////////////////////////////////////////////////////////////////
+Image::Image(int w, int h)
+{
+    m_width = w;
+    m_height = h;
+
+    // Allocate memory for the pixel data Array
+    // Initialize to 0
+    if(w != 0 || h != 0) 
+        m_data = new uint8_t[m_width * m_height * 3]{}; 
+    else
+        m_data = nullptr; // If width or height is 0, set m_data to nullptr
+}    
+
+///////////////////////////////////////////////////////////////////////
+// Image Class Destructor
+///////////////////////////////////////////////////////////////////////
+Image::~Image() // Free memory
+{
+    if (m_data) {
+        delete[] m_data;
+        m_data = nullptr;
+    }
+}
+
+///////////////////////////////////////////////////////////////////////
+// Overloaded equality operator
+///////////////////////////////////////////////////////////////////////
+bool Image::operator==(const Image &other) const
+{
+    // Debugging print
+    std::cout << "I've been called!" << std::endl;
+
+    // Check if the dimensions of the images are equal
+    if (m_width != other.m_width || m_height != other.m_height)
+    {
+        // Debugging print
+        std::cout << "Image dimensions do not match: "
+                  << "this(" << m_width << "x" << m_height << "), "
+                  << "other(" << other.m_width << "x" << other.m_height << ")" 
+                  << std::endl;
+        return false; // If dimensions are not equal, return false
+    }    
+
+    for (int i = 0; i < m_width * m_height * 3; i++)
+    {
+        // Debugging print
+        // std::cout << "Comparing pixel data at index " << i << std::endl;
+        // If any pixel data is not equal, return false
+        if (m_data[i] != other.m_data[i])
+        {
+            std::cout << "Mismatch at byte " << i
+                << ": this = " << static_cast<int>(m_data[i])
+                << ", other = " << static_cast<int>(other.m_data[i])
+                << std::endl;
+            return false; 
+        }
+    }
+    return true; // All pixel data is equal
+}
+
+///////////////////////////////////////////////////////////////////////
+// GET the RED value of a pixel
+///////////////////////////////////////////////////////////////////////
+uint8_t Image::GetPixalRed(uint8_t x, uint8_t y) 
+{
+    if (x >= m_width || y >= m_height) 
+    {
+        // Debugging print
+        std::cout << "Pixel coordinates out of bounds: (" << (int)x << ", " << (int)y << ")" << std::endl;
+        return 0; // Return 0 if coordinates are out of bounds
+    }
+    return m_data[3* m_width *y+ 3 * x + 0]; 
+}
+///////////////////////////////////////////////////////////////////////
+// GET the GREEN value of a pixel
+///////////////////////////////////////////////////////////////////////
+uint8_t Image::GetPixalGreen(uint8_t x, uint8_t y) 
+{
+    if (x >= m_width || y >= m_height) 
+    {
+        // Debugging print
+        std::cout << "Pixel coordinates out of bounds: (" << (int)x << ", " << (int)y << ")" << std::endl;
+        return 0; // Return 0 if coordinates are out of bounds
+    }
+
+    return m_data[3* m_width *y+ 3 * x + 1]; 
+}
+///////////////////////////////////////////////////////////////////////
+// GET the BLUE value of a pixel
+///////////////////////////////////////////////////////////////////////
+uint8_t Image::GetPixalBlue(uint8_t x, uint8_t y) 
+{
+    if (x >= m_width || y >= m_height) 
+    {
+        // Debugging print
+        std::cout << "Pixel coordinates out of bounds: (" << (int)x << ", " << (int)y << ")" << std::endl;
+        return 0; // Return 0 if coordinates are out of bounds
+    }
+
+    return m_data[3* m_width *y+ 3 * x + 2]; 
+}
+
+///////////////////////////////////////////////////////////////////////
+// SET the RED value of a pixel
+///////////////////////////////////////////////////////////////////////
+void Image::SetPixalRed(uint8_t x, uint8_t y,uint8_t r) 
+{
+    if (x >= m_width || y >= m_height) 
+    {
+        // Debugging print
+        std::cout << "Pixel coordinates out of bounds: (" << (int)x << ", " << (int)y << ")" << std::endl;
+        return; // Return if coordinates are out of bounds
+
+    }
+
+    m_data[3* m_width *y+ 3 * x + 0] = r; 
+}
+///////////////////////////////////////////////////////////////////////
+// SET the GREEN value of a pixel
+///////////////////////////////////////////////////////////////////////
+void Image::SetPixalGreen(uint8_t x, uint8_t y, uint8_t g) 
+{
+    if (x >= m_width || y >= m_height) 
+    {
+        // Debugging print
+        std::cout << "Pixel coordinates out of bounds: (" << (int)x << ", " << (int)y << ")" << std::endl;
+        return; // Return if coordinates are out of bounds
+    }
+
+    m_data[3* m_width *y+ 3 * x + 1] = g; 
+}
+///////////////////////////////////////////////////////////////////////
+// SET the BLUE value of a pixel
+///////////////////////////////////////////////////////////////////////
+void Image::SetPixalBlue(uint8_t x, uint8_t y, uint8_t b) 
+{
+    if (x >= m_width || y >= m_height) 
+    {
+        // Debugging print
+        std::cout << "Pixel coordinates out of bounds: (" << (int)x << ", " << (int)y << ")" << std::endl;
+        return; // Return if coordinates are out of bounds
+
+    }
+
+    m_data[3* m_width *y+ 3 * x + 2] = b; 
+}
+
+///////////////////////////////////////////////////////////////////////
+// Save the image using libpng
+///////////////////////////////////////////////////////////////////////
+bool Image::Save_png(std::string filePath) 
+{
+    
+    // This section opens the file for writing in binary mode ("wb")
+    // If the file can't be opened, it returns false
+    FILE* fp = fopen(filePath.c_str(), "wb");   
+    if (!fp)
+    {
+        return false; 
+    }
+
+    // Create libpng structures
+    // NOTE:
+    // Maybe these shouldn't be stored on the stack if we want it to be 
+    //      Faster? The documentation says that these are large. Maybe
+    //      we should use a smart pointer or something like that? Or 
+    //      Maybe having them on the stack is actually faster?
+
+    // png_create_write_struct creates a write context for the PNG file
+    // Parameters:
+    // PNG_LIBPNG_VER_STRING is a string that contains the version number 
+    //      of libpng
+    png_structp png = png_create_write_struct(PNG_LIBPNG_VER_STRING,
+        nullptr,nullptr,nullptr); 
+    if (!png)
+    {
+        fclose(fp); // Close the file if png_create_write_struct fails
+        return false; // Return false if png_create_write_struct fails
+    }
+
+    // Create the info header (metadata), like width, height, format, etc.
+    png_infop info = png_create_info_struct(png);
+    if (!info)
+    {
+        // Destroy the png struct if info creation fails
+        // png_destroy_write_struct(&png, nullptr); 
+        fclose(fp); // Close the file if png_create_info_struct fails
+        return false; // Return false if png_create_info_struct fails
+    }
+
+    // Ensure image is not of size 0 before proceeding
+    if (m_height == 0 || m_width == 0 || !m_data)
+    {
+        png_destroy_write_struct(&png, &info);
+        fclose(fp);
+        return false;
+    }
+        
+    // Set up Error handling
+    // setjmp(png_jmpbuf(png)) saves current stack context using the jump
+    //      buffer, which is saved in png
+    // If an error occurs, the program jumps back to this point and exits
+    if (setjmp(png_jmpbuf(png)))
+    {
+        png_destroy_write_struct(&png, &info);
+        fclose(fp);
+        return false;
+    }
+
+    // Store the file pointer in the png struct
+    // This is used to write the PNG data to the file
+    png_init_io(png, fp);
+
+    /*
+    Set image metadata (header info);
+
+    width - holds the width of the image in pixels (up to 2ˆ31).
+    height - holds the height of the image in pixels (up to 2ˆ31).
+    bit_depth - holds the bit depth of one of the image channels.
+                (valid values are 1, 2, 4, 8, 16 and depend also on the
+                color_type. See also significant bits (sBIT) below).
+    color_type - describes which color/alpha channels are present.
+                PNG_COLOR_TYPE_GRAY
+                    (bit depths 1, 2, 4, 8, 16)
+                PNG_COLOR_TYPE_GRAY_ALPHA
+                    (bit depths 8, 16)
+                PNG_COLOR_TYPE_PALETTE
+                    (bit depths 1, 2, 4, 8)
+                PNG_COLOR_TYPE_RGB
+                    (bit_depths 8, 16)
+                PNG_COLOR_TYPE_RGB_ALPHA
+                    (bit_depths 8, 16)
+                PNG_COLOR_MASK_PALETTE
+                PNG_COLOR_MASK_COLOR
+                PNG_COLOR_MASK_ALPHA
+    interlace_type - PNG_INTERLACE_NONE or PNG_INTERLACE_ADAM7
+    compression_type - (must be PNG_COMPRESSION_TYPE_DEFAULT)
+    filter_method - (must be PNG_FILTER_TYPE_DEFAULT or, if you are writing
+                a PNG to be embedded in a MNG datastream, can also be
+                PNG_INTRAPIXEL_DIFFERENCING)
+    */
+    int bit_depth = 8;
+    int color_type = PNG_COLOR_TYPE_RGB;
+    int interlace_type = PNG_INTERLACE_NONE;
+    int compression_type = PNG_COMPRESSION_TYPE_DEFAULT;
+    int filter_method = PNG_FILTER_TYPE_DEFAULT;
+
+    png_set_IHDR(png, info, m_width, m_height,
+        bit_depth, color_type, interlace_type,
+        compression_type, filter_method);
+
+    // Create an array of pointers to each row of the image
+    png_bytep* row_pointers = NULL;
+    row_pointers = (png_bytep*)malloc(sizeof(png_bytep) * m_height);
+
+    // png_bytep* row_pointers = new png_bytep[height];
+    for (int y = 0; y < m_height; y++)
+    {
+        row_pointers[y] = m_data + y * m_width * 3; 
+    }
+
+    // Write the image data to the file
+    png_set_rows(png, info, row_pointers);
+    png_write_png(png, info, PNG_TRANSFORM_STRIP_ALPHA, nullptr);
+
+    free(row_pointers);
+
+    fclose(fp);
+    
+    png_destroy_write_struct(&png, &info);
+
+    return true; // Return true if successful
+
+}
+
+///////////////////////////////////////////////////////////////////////
+// Save the image using libpng
+///////////////////////////////////////////////////////////////////////
+bool Image::Read_png(std::string filePath)
+{
+    // Open the file for reading in binary mode ("rb")
+    FILE *fp = fopen(filePath.c_str(), "rb");
+    if (!fp) 
+    {
+        // Debugging print
+        std::cout << "Failed to open file: " << filePath << std::endl;
+        return false; // Return false if file cannot be opened
+    }
+
+    // Check if the file is a PNG file by reading the first 8 bytes
+    png_byte header[8];
+    fread(header, 1, 8, fp);
+    if(png_sig_cmp(header,0,8))
+    {
+        fclose(fp);
+        // Debugging print
+        std::cout << "File is not a PNG file." << std::endl;
+        return false; // Return false if file is not a PNG
+    }
+
+    // Create libpng structures
+    png_struct* png = png_create_read_struct
+        (PNG_LIBPNG_VER_STRING, nullptr, nullptr, nullptr);
+    // Return false if png_create_read_struct fails
+    if (!png) 
+    {
+        // Debugging print
+        std::cout << "Failed to create PNG read struct." << std::endl;
+        fclose(fp);
+        return false; 
+    }
+    png_infop info = png_create_info_struct(png);
+    if (!info)
+    {
+        // Debugging print
+        std::cout << "Failed to create PNG info struct." << std::endl;
+        png_destroy_read_struct(&png, nullptr, nullptr);
+        fclose(fp);
+        return false; // Return false if png_create_info_struct fails
+    }
+    png_infop end = png_create_info_struct(png);
+    if (!end)
+    {
+        // Debugging print
+        std::cout << "Failed to create PNG end info struct." << std::endl;
+        png_destroy_read_struct(&png, &info, nullptr);
+        fclose(fp);
+        return false; // Return false if png_create_info_struct fails
+    }
+
+    // Save stack context for error handling
+    if (setjmp(png_jmpbuf(png)))
+    {
+        // Debugging print
+        std::cout << "Error during PNG read." << std::endl;
+        png_destroy_read_struct(&png, &info, &end);
+        fclose(fp);
+        return false; // Return false if an error occurs
+    }
+
+    // Initialize the png struct with the file pointer
+    png_init_io(png, fp);    
+
+    // Inform libpng that the file pointer has been moved up 
+    //      by 8 bytes to skip the PNG signature 
+    png_set_sig_bytes(png, 8);
+
+    // Read the PNG file
+    png_read_png(png, info, PNG_TRANSFORM_STRIP_ALPHA, NULL);
+
+    // Read in the image data
+
+    png_bytep* row_pointers = png_get_rows(png, info);
+
+    // Read in the image data into the Image object
+
+    m_height = png_get_image_height(png, info);
+    m_width = png_get_image_width(png, info);
+
+    m_data = new uint8_t[m_width * m_height * 3];
+
+    for (int i = 0; i < m_height; i++)
+    {
+        memcpy(m_data + i * m_width * 3, row_pointers[i], m_width * 3);
+    }
+
+    // Destroy the png structures and close the file
+    png_destroy_read_struct(&png, &info, &end);
+    fclose(fp);
+    return true; // Return true if successful
+}
+
+///////////////////////////////////////////////////////////////////////
+// Save the image using turbo jpeg
+///////////////////////////////////////////////////////////////////////
+bool Image::Save_jpeg(std::string filename, int quality)
+{
+    // Create a jpeg compression object
+    struct jpeg_compress_struct cinfo;
+
+    struct custom_error_mgr jerr; // JPEG error handler.
+    FILE *outfile;  // Target File
+
+    // Pointer to array of pointers to image rows
+    JSAMPARRAY  row_pointers = new JSAMPROW[m_height]; // Pointer to a single row of pixels
+    for (int x = 0; x < m_height; x++)
+    {
+        row_pointers[x] = m_data + x * m_width * 3; // Set row pointers to the image data
+    }
+
+    int row_stride; // Physical row width in bytes
+    int row, col; // Dimensions of the image
+
+    // Step 1 Allocate and initialize JPEG compression object
+
+    // Step 1.1 Set up the error handler
+    cinfo.err = jpeg_std_error(&jerr.pub);
+    jerr.pub.error_exit = custom_error_exit;
+
+    // Step 1.2 Initialize the JPEG compression object
+    jpeg_create_compress(&cinfo);
+
+    // Step 1.3 Set up the jump point
+    if (setjmp(jerr.setjmp_buffer)) 
+    {
+        // We jumped here from a fatal JPEG error
+        jpeg_destroy_compress(&cinfo);
+        return false;
+    }
+
+    // Step 2 Specify data destination
+    if ((outfile = fopen(filename.c_str(), "wb")) == NULL)
+    {
+        jpeg_destroy_compress(&cinfo);
+        return false; // Exit if the file cannot be opened
+    }
+
+    jpeg_stdio_dest(&cinfo, outfile); // send compressed data to a stdio stream
+
+    // Step 3 Set parameters for compression
+    cinfo.image_width = m_width; // Image width in pixels
+    cinfo.image_height = m_height; // Image height in pixels
+    cinfo.input_components = 3; // Number of color components per pixel
+    cinfo.in_color_space = JCS_RGB; // Color space of the input image
+    // FIXME this is supposed to be passed in to this function, so data_precision hasn't been defined.
+    cinfo.data_precision = 8; // data precision of input image. 
+
+    jpeg_set_defaults(&cinfo); // Set default compression parameters
+    jpeg_set_quality(&cinfo, quality, TRUE); // Set the quality of the compression
+        // Uses 4:4:4 chroma subsampling by default
+    cinfo.comp_info[0].h_samp_factor = cinfo.comp_info[0].v_samp_factor = 1;
+
+    // Step 4 Start compressor
+    jpeg_start_compress(&cinfo, TRUE);  // TRUE ensures that we will write a complete interchange-JPEG file
+    
+    // Step 6 Write scanlines
+    while (cinfo.next_scanline < cinfo.image_height)
+    {
+        jpeg_write_scanlines(&cinfo, &row_pointers[cinfo.next_scanline], 1);
+    }
+
+    // Step 7 Finish Compression
+    jpeg_finish_compress(&cinfo);
+    fclose(outfile); // Close the output file
+
+    // Step 8 Release JPEG compression object
+    jpeg_destroy_compress(&cinfo); // Release the JPEG compression object
+    delete[] row_pointers;
+    return true; // Return true if successful
+}
+
+///////////////////////////////////////////////////////////////////////
+// Public Encapsulation to Read the image using turbo jpeg
+///////////////////////////////////////////////////////////////////////
+int Image::Read_jpeg_pub(std::string infilename)
+{
+    struct jpeg_decompress_struct cinfo; // QUESTION: I don't understand this syntax and where is this struct defined?
+
+    return Read_jpeg_priv(&cinfo, infilename);
+}
+
+///////////////////////////////////////////////////////////////////////
+// Read the image using turbo jpeg
+// NOTE:
+//      We call the libjpeg API from within a separate function, because 
+//      modifying the local non-volatile jpeg_decompress_struct instance 
+//      below the setjmp() return point and then accessing the instance 
+//      after setjmp() returns would result in undefined behavior that 
+//      may potentially overwrite all or part of the structure.
+//      (This note was quoted from the libjpeg example code)
+///////////////////////////////////////////////////////////////////////
+int Image::Read_jpeg_priv(struct jpeg_decompress_struct *cinfo, std::string infilename)
+{
+    struct my_error_mgr jerr;   // Create an instance of our custom error manager
+    FILE *infile;               // source file
+    JSAMPARRAY buffer = NULL;   // Output row buffer 
+    int col;
+    int row_stride;             // physical row width in output buffer 
+
+    // Open the input and output files so they can be closed if we long jump.
+    if ((infile = fopen(infilename.c_str(), "rb")) == NULL)
+    {
+        fprintf(stderr, "can't open %s\n", infilename.c_str());
+        return 0;
+    }
+
+    // Step 1: allocate and initialize JPEG decompression object
+
+    cinfo->err = jpeg_std_error(&jerr.pub);
+    jerr.pub.error_exit = my_error_exit; // then override error_exit.
+
+    // Set up the jump point for error handling
+    if (setjmp(jerr.setjmp_buffer))
+    {
+        //Clean up the JPEG object, close the input file, and return.
+        jpeg_destroy_decompress(cinfo);
+        fclose(infile);
+        return 0;
+    }
+
+    // Initialize the JPEG decompression object.
+    jpeg_create_decompress(cinfo);
+
+    // Step 2: specify data source (eg, a file)
+
+    jpeg_stdio_src(cinfo, infile);
+
+    // Step 3: read file parameters with jpeg_read_header()
+
+    // This is type-cast as void because we are only reading entire images
+    (void)jpeg_read_header(cinfo, TRUE);
+
+
+    // Step 4: set parameters for decompression 
+    //      Note: This step is optional, but it allows you to change
+    //      the default parameters set by jpeg_read_header().
+    // Step 5: Start decompressor 
+
+    // This is type-cast as void because we are only reading entire images
+    (void)jpeg_start_decompress(cinfo);
+
+    row_stride = cinfo->output_width * cinfo->output_components;
+    
+    // This buffer is a stepping block for one row of output pixels in between the 
+    //      input jpeg and the output ppm
+    buffer = (*cinfo->mem->alloc_sarray)((j_common_ptr)cinfo, JPOOL_IMAGE, row_stride, 1);
+
+    // Write to data member m_data adaptation
+    m_data = new uint8_t[m_width * m_height * 3];
+
+
+    // Step 6: Line by line, read jpeg to ppm
+    while (cinfo->output_scanline < cinfo->output_height)
+    {
+        buffer[0] = m_data + (cinfo->output_scanline * row_stride);
+        (void)jpeg_read_scanlines(cinfo, buffer, 1);
+        // fwrite(buffer[0], 1, row_stride, outfile);
+    }
+
+    /* Step 7: Finish decompression */
+
+    // This is type-cast as void because we are only reading entire images
+    (void)jpeg_finish_decompress(cinfo);
+
+    /* Step 8: Release JPEG decompression object */
+
+    jpeg_destroy_decompress(cinfo);
+
+    fclose(infile);
+
+    return 1; // We want to return 1 on success, 0 on error.
+}
