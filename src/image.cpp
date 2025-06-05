@@ -31,6 +31,14 @@
 // #include "stb_image_write.h"
 
 ///////////////////////////////////////////////////////////////////////
+// QUESTION:
+// The following two functions and structs are custom error handlers
+// for JPEG. Should they be in a separate file? Should they be member
+// Functions of the Image class? 
+///////////////////////////////////////////////////////////////////////
+
+
+///////////////////////////////////////////////////////////////////////
 // FIXME Custom error handler for JPEG
 // FIXME Should this be in a separate file?
 ///////////////////////////////////////////////////////////////////////
@@ -238,7 +246,7 @@ void Image::SetPixalBlue(uint8_t x, uint8_t y, uint8_t b)
 ///////////////////////////////////////////////////////////////////////
 // Save the image using libpng
 ///////////////////////////////////////////////////////////////////////
-bool Image::Save_png(std::string filePath) 
+bool Image::SavePNG(std::string filePath) 
 {
     
     // This section opens the file for writing in binary mode ("wb")
@@ -366,7 +374,7 @@ bool Image::Save_png(std::string filePath)
 ///////////////////////////////////////////////////////////////////////
 // Save the image using libpng
 ///////////////////////////////////////////////////////////////////////
-bool Image::Read_png(std::string filePath)
+bool Image::OpenPNG(std::string filePath)
 {
     // Open the file for reading in binary mode ("rb")
     FILE *fp = fopen(filePath.c_str(), "rb");
@@ -463,7 +471,7 @@ bool Image::Read_png(std::string filePath)
 ///////////////////////////////////////////////////////////////////////
 // Save the image using turbo jpeg
 ///////////////////////////////////////////////////////////////////////
-bool Image::Save_jpeg(std::string filename, int quality)
+bool Image::SaveJPEG(std::string filename, int quality)
 {
     // Create a jpeg compression object
     struct jpeg_compress_struct cinfo;
@@ -542,11 +550,11 @@ bool Image::Save_jpeg(std::string filename, int quality)
 ///////////////////////////////////////////////////////////////////////
 // Public Encapsulation to Read the image using turbo jpeg
 ///////////////////////////////////////////////////////////////////////
-int Image::Read_jpeg_pub(std::string infilename)
+int Image::OpenJPEG(std::string infilename)
 {
     struct jpeg_decompress_struct cinfo; // QUESTION: I don't understand this syntax and where is this struct defined?
 
-    return Read_jpeg_priv(&cinfo, infilename);
+    return openJPEG(&cinfo, infilename);
 }
 
 ///////////////////////////////////////////////////////////////////////
@@ -559,7 +567,7 @@ int Image::Read_jpeg_pub(std::string infilename)
 //      may potentially overwrite all or part of the structure.
 //      (This note was quoted from the libjpeg example code)
 ///////////////////////////////////////////////////////////////////////
-int Image::Read_jpeg_priv(struct jpeg_decompress_struct *cinfo, std::string infilename)
+int Image::openJPEG(struct jpeg_decompress_struct *cinfo, std::string infilename)
 {
     struct my_error_mgr jerr;   // Create an instance of our custom error manager
     FILE *infile;               // source file
