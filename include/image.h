@@ -8,7 +8,7 @@ class Image
     private:
         int m_width;
         int m_height;
-        int Read_jpeg_priv(struct jpeg_decompress_struct *cinfo,
+        int openJPEG(struct jpeg_decompress_struct *cinfo,
                         std::string infilename);
 
     public:
@@ -27,11 +27,11 @@ class Image
         void SetPixalGreen(uint8_t x, uint8_t y, uint8_t g); // Set the green value of a pixel
         void SetPixalBlue(uint8_t x, uint8_t y, uint8_t b); // Set the blue value of a pixel
 
-        bool Save_png(std::string filePath); // Save the image to a png file
-        bool Read_png(std::string filePath); // Read the image from a png file
+        bool SavePNG(std::string filePath); // Save the image to a png file
+        bool OpenPNG(std::string filePath); // Read the image from a png file
 
-        bool Save_jpeg(std::string filename, int quality); // Save the image to a jpg file
-        int Read_jpeg_pub(std::string infilename);
+        bool SaveJPEG(std::string filename, int quality); // Save the image to a jpg file
+        int OpenJPEG(std::string infilename);
 
         ~Image(); // Free memory
 };
