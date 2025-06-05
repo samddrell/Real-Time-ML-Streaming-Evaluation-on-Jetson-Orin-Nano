@@ -5,6 +5,8 @@
 #include <stdio.h>
 #include <cstdio>
 #include <stdlib.h>
+#include <unordered_map>
+
 
 #include "image.h" // for Image class
 
@@ -647,4 +649,44 @@ int Image::openJPEG(struct jpeg_decompress_struct *cinfo, std::string infilename
     fclose(infile);
 
     return 1; // We want to return 1 on success, 0 on error.
+}
+
+///////////////////////////////////////////////////////////////////////
+// Public Interface to Save the image, regardless of format
+///////////////////////////////////////////////////////////////////////
+bool Image::SaveFile(std::string infilename)
+{
+    // Isolate the file extension from the filename
+    int iLoc = infilename.find_last_of('.')
+    if (iLoc == std::string::npos) return false; // No extension found
+    string szExtention = infilename.substr(iLoc + 1);
+
+    std::unordered_map<std::string, std::functions<boll(const std::string&)>> saveFunctions;
+    saveFunctions["png"] = &Image::SavePNG;
+    saveFunctions["jpg"] = &Image::SaveJPEG;
+    saveFunctions["jpeg"] = &Image::SaveJPEG;
+
+    // Check if the extension is in the map
+    // Return false if it fails to save or if the extension is not supported
+    if (saveFunctions[szExtention](infilename)) return true ? return false;
+}
+
+///////////////////////////////////////////////////////////////////////
+// Public Interface to Open the image, regardless of format
+///////////////////////////////////////////////////////////////////////
+bool Image::OpenFile(std::string infilename)
+{
+    // Isolate the file extension from the filename
+    int iLoc = infilename.find_last_of('.')
+    if (iLoc == std::string::npos) return false; // No extension found
+    string szExtention = infilename.substr(iLoc + 1);
+
+    std::unordered_map<std::string, std::functions<boll(const std::string&)>> openFunctions;
+    openFunctions["png"] = &Image::OpenPNG;
+    openFunctions["jpg"] = &Image::OpenJPEG;
+    openFunctions["jpeg"] = &Image::OpenJPEG;
+
+    // Check if the extension is in the map
+    // Return false if it fails to save or if the extension is not supported
+    if (saveFunctions[szExtention](infilename)) return true ? return false;
 }

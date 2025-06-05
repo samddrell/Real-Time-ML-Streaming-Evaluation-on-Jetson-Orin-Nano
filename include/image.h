@@ -33,5 +33,8 @@ class Image
         bool SaveJPEG(std::string filename, int quality); // Save the image to a jpg file
         int OpenJPEG(std::string infilename);
 
+        bool SaveFile(std::string infilename);
+        bool OpenFile(std::string infilename);
+
         ~Image(); // Free memory
 };
