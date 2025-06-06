@@ -144,9 +144,13 @@ TEST(ImageTest, EqualityOperator) {
 
 
     EXPECT_TRUE(img1 == img2);
+    // Debugging print
+    std::cout << "Images are equal." << std::endl;
 
     img2.SetPixalBlue(0, 0, 255);
     EXPECT_FALSE(img1 == img2); // Now they differ
+    // Debugging print
+    std::cout << "Images are not equal." << std::endl;
 }
 
 
@@ -207,12 +211,15 @@ TEST(ImageTest, SaveandReadGradient)
 
     // Save the image
     EXPECT_TRUE(gradient->SaveJPEG(filename1.c_str(), quality)) << error1.c_str();
+    std::cout << "Saved gradient to " << filename1 << std::endl;
 
     // Read the image back
     Image* check_image = new Image();
     EXPECT_TRUE(check_image->OpenJPEG(filename1.c_str())) << error2.c_str();
+    std::cout << "Read gradient from " << filename1 << std::endl;
 
     EXPECT_TRUE(*check_image == *gradient) << error3.c_str();
+    std::cout << "Image data and dimensions match!" << std::endl;
 
     delete gradient;
 }

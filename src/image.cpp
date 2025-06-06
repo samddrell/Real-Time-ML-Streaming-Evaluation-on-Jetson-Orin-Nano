@@ -27,7 +27,7 @@
 #define strncasecmp  strnicmp
 #endif
 
-// NOTE: Control F to find all FIXME's, Debugging Print's, and QUESTION's. These should be corrected (if applicable) and removed before the next release.
+// NOTE: Control F to find all QUESTION's. These should be corrected (if applicable) and removed before the next release.
 
 
 // #define STB_IMAGE_WRITE_IMPLEMENTATION
@@ -43,8 +43,8 @@
 
 
 ///////////////////////////////////////////////////////////////////////
-// FIXME Custom error handler for JPEG
-// FIXME Should this be in a separate file?
+// Custom error handler for JPEG
+// QUESTION Should this be in a separate file?
 ///////////////////////////////////////////////////////////////////////
 struct custom_error_mgr {
     jpeg_error_mgr pub;       // "Inherit" base JPEG error manager
@@ -104,11 +104,12 @@ Image::Image(int w, int h)
 {
     m_width = w;
     m_height = h;
+    m_resolution = m_width * m_height; // Calculate the resolution
 
     // Allocate memory for the pixel data Array
     // Initialize to 0
     if(w != 0 || h != 0) 
-        m_data = new uint8_t[m_width * m_height * 3]{}; 
+        m_data = new uint8_t[m_resolution * 3](); 
     else
         m_data = nullptr; // If width or height is 0, set m_data to nullptr
 }    
@@ -129,36 +130,49 @@ Image::~Image() // Free memory
 ///////////////////////////////////////////////////////////////////////
 bool Image::operator==(const Image &other) const
 {
-    // Debugging print
-    std::cout << "I've been called!" << std::endl;
 
     // Check if the dimensions of the images are equal
     if (m_width != other.m_width || m_height != other.m_height)
     {
-        // Debugging print
-        std::cout << "Image dimensions do not match: "
-                  << "this(" << m_width << "x" << m_height << "), "
-                  << "other(" << other.m_width << "x" << other.m_height << ")" 
-                  << std::endl;
         return false; // If dimensions are not equal, return false
     }    
 
-    for (int i = 0; i < m_width * m_height * 3; i++)
+    uint mismatchCount = 0; // Initialize mismatch count
+
+    for (int i = 0; i < m_resolution * 3; i++)
     {
-        // Debugging print
-        // std::cout << "Comparing pixel data at index " << i << std::endl;
         // If any pixel data is not equal, return false
         if (m_data[i] != other.m_data[i])
         {
-            std::cout << "Mismatch at byte " << i
-                << ": this = " << static_cast<int>(m_data[i])
-                << ", other = " << static_cast<int>(other.m_data[i])
-                << std::endl;
-            return false; 
+            mismatchCount += static_cast<uint>(other.m_data[i]) - 
+                static_cast<uint>(m_data[i]); // Calculate the difference
         }
     }
-    return true; // All pixel data is equal
+
+    if (m_extension == "jpeg")
+    {
+        if (static_cast<double>(mismatchCount)/static_cast<double>(m_resolution * 3) > static_cast<double>(m_matchQuality))
+        {
+            return false; // If any pixel data is not equal, return false
+        }
+        else
+        {
+            return true; // If all pixel data is equal within the match quality tolerance, return true
+        }
+    }
+    else
+    {
+        if (mismatchCount != 0)
+        {
+            return false; // If any pixel data is not equal, return false
+        }
+        else
+        {
+            return true; // If all pixel data is equal, return true
+        }
+    }
 }
+    
 
 ///////////////////////////////////////////////////////////////////////
 // GET the RED value of a pixel
@@ -167,8 +181,6 @@ uint8_t Image::GetPixalRed(uint8_t x, uint8_t y)
 {
     if (x >= m_width || y >= m_height) 
     {
-        // Debugging print
-        std::cout << "Pixel coordinates out of bounds: (" << (int)x << ", " << (int)y << ")" << std::endl;
         return 0; // Return 0 if coordinates are out of bounds
     }
     return m_data[3* m_width *y+ 3 * x + 0]; 
@@ -180,8 +192,6 @@ uint8_t Image::GetPixalGreen(uint8_t x, uint8_t y)
 {
     if (x >= m_width || y >= m_height) 
     {
-        // Debugging print
-        std::cout << "Pixel coordinates out of bounds: (" << (int)x << ", " << (int)y << ")" << std::endl;
         return 0; // Return 0 if coordinates are out of bounds
     }
 
@@ -194,8 +204,6 @@ uint8_t Image::GetPixalBlue(uint8_t x, uint8_t y)
 {
     if (x >= m_width || y >= m_height) 
     {
-        // Debugging print
-        std::cout << "Pixel coordinates out of bounds: (" << (int)x << ", " << (int)y << ")" << std::endl;
         return 0; // Return 0 if coordinates are out of bounds
     }
 
@@ -209,10 +217,7 @@ void Image::SetPixalRed(uint8_t x, uint8_t y,uint8_t r)
 {
     if (x >= m_width || y >= m_height) 
     {
-        // Debugging print
-        std::cout << "Pixel coordinates out of bounds: (" << (int)x << ", " << (int)y << ")" << std::endl;
         return; // Return if coordinates are out of bounds
-
     }
 
     m_data[3* m_width *y+ 3 * x + 0] = r; 
@@ -224,8 +229,6 @@ void Image::SetPixalGreen(uint8_t x, uint8_t y, uint8_t g)
 {
     if (x >= m_width || y >= m_height) 
     {
-        // Debugging print
-        std::cout << "Pixel coordinates out of bounds: (" << (int)x << ", " << (int)y << ")" << std::endl;
         return; // Return if coordinates are out of bounds
     }
 
@@ -238,10 +241,7 @@ void Image::SetPixalBlue(uint8_t x, uint8_t y, uint8_t b)
 {
     if (x >= m_width || y >= m_height) 
     {
-        // Debugging print
-        std::cout << "Pixel coordinates out of bounds: (" << (int)x << ", " << (int)y << ")" << std::endl;
         return; // Return if coordinates are out of bounds
-
     }
 
     m_data[3* m_width *y+ 3 * x + 2] = b; 
@@ -251,8 +251,7 @@ void Image::SetPixalBlue(uint8_t x, uint8_t y, uint8_t b)
 // Save the image using libpng
 ///////////////////////////////////////////////////////////////////////
 bool Image::SavePNG(std::string filePath) 
-{
-    
+{   
     // This section opens the file for writing in binary mode ("wb")
     // If the file can't be opened, it returns false
     FILE* fp = fopen(filePath.c_str(), "wb");   
@@ -371,6 +370,7 @@ bool Image::SavePNG(std::string filePath)
     
     png_destroy_write_struct(&png, &info);
 
+    m_extension = "png"; // Set the file extension to png
     return true; // Return true if successful
 
 }
@@ -384,8 +384,6 @@ bool Image::OpenPNG(std::string filePath)
     FILE *fp = fopen(filePath.c_str(), "rb");
     if (!fp) 
     {
-        // Debugging print
-        std::cout << "Failed to open file: " << filePath << std::endl;
         return false; // Return false if file cannot be opened
     }
 
@@ -395,8 +393,6 @@ bool Image::OpenPNG(std::string filePath)
     if(png_sig_cmp(header,0,8))
     {
         fclose(fp);
-        // Debugging print
-        std::cout << "File is not a PNG file." << std::endl;
         return false; // Return false if file is not a PNG
     }
 
@@ -406,16 +402,12 @@ bool Image::OpenPNG(std::string filePath)
     // Return false if png_create_read_struct fails
     if (!png) 
     {
-        // Debugging print
-        std::cout << "Failed to create PNG read struct." << std::endl;
         fclose(fp);
         return false; 
     }
     png_infop info = png_create_info_struct(png);
     if (!info)
     {
-        // Debugging print
-        std::cout << "Failed to create PNG info struct." << std::endl;
         png_destroy_read_struct(&png, nullptr, nullptr);
         fclose(fp);
         return false; // Return false if png_create_info_struct fails
@@ -423,8 +415,6 @@ bool Image::OpenPNG(std::string filePath)
     png_infop end = png_create_info_struct(png);
     if (!end)
     {
-        // Debugging print
-        std::cout << "Failed to create PNG end info struct." << std::endl;
         png_destroy_read_struct(&png, &info, nullptr);
         fclose(fp);
         return false; // Return false if png_create_info_struct fails
@@ -433,8 +423,6 @@ bool Image::OpenPNG(std::string filePath)
     // Save stack context for error handling
     if (setjmp(png_jmpbuf(png)))
     {
-        // Debugging print
-        std::cout << "Error during PNG read." << std::endl;
         png_destroy_read_struct(&png, &info, &end);
         fclose(fp);
         return false; // Return false if an error occurs
@@ -458,8 +446,9 @@ bool Image::OpenPNG(std::string filePath)
 
     m_height = png_get_image_height(png, info);
     m_width = png_get_image_width(png, info);
-
-    m_data = new uint8_t[m_width * m_height * 3];
+    m_extension = "png"; // Set the file extension to png
+    m_resolution = m_width * m_height; // Calculate the resolution
+    m_data = new uint8_t[m_resolution * 3];
 
     for (int i = 0; i < m_height; i++)
     {
@@ -524,7 +513,6 @@ bool Image::SaveJPEG(std::string filename, int quality = 100)
     cinfo.image_height = m_height; // Image height in pixels
     cinfo.input_components = 3; // Number of color components per pixel
     cinfo.in_color_space = JCS_RGB; // Color space of the input image
-    // FIXME this is supposed to be passed in to this function, so data_precision hasn't been defined.
     cinfo.data_precision = 8; // data precision of input image. 
 
     jpeg_set_defaults(&cinfo); // Set default compression parameters
@@ -548,6 +536,8 @@ bool Image::SaveJPEG(std::string filename, int quality = 100)
     // Step 8 Release JPEG compression object
     jpeg_destroy_compress(&cinfo); // Release the JPEG compression object
     delete[] row_pointers;
+
+    m_extension = "jpeg"; // Set the file extension to jpg
     return true; // Return true if successful
 }
 
@@ -556,7 +546,7 @@ bool Image::SaveJPEG(std::string filename, int quality = 100)
 ///////////////////////////////////////////////////////////////////////
 int Image::OpenJPEG(std::string infilename)
 {
-    struct jpeg_decompress_struct cinfo; // QUESTION: I don't understand this syntax and where is this struct defined?
+    struct jpeg_decompress_struct cinfo; 
 
     return openJPEG(&cinfo, infilename);
 }
@@ -614,6 +604,8 @@ int Image::openJPEG(struct jpeg_decompress_struct *cinfo, std::string infilename
 
     m_width = cinfo->image_width; // Set the image width
     m_height = cinfo->image_height; // Set the image height
+    m_resolution = m_width * m_height; // Calculate the resolution
+    m_extension = "jpeg"; // Set the file extension to jpeg
 
 
     // Step 4: set parameters for decompression 
@@ -631,7 +623,7 @@ int Image::openJPEG(struct jpeg_decompress_struct *cinfo, std::string infilename
     buffer = (*cinfo->mem->alloc_sarray)((j_common_ptr)cinfo, JPOOL_IMAGE, row_stride, 1);
 
     // Write to data member m_data adaptation
-    m_data = new uint8_t[m_width * m_height * 3];
+    m_data = new uint8_t[m_resolution * 3];
 
 
     // Step 6: Line by line, read jpeg to ppm
@@ -667,8 +659,6 @@ bool Image::SaveFile(std::string infilename)
     if (iLoc == std::string::npos) return false; // No extension found
     std::string szExtention = infilename.substr(iLoc + 1);
     int szExtentionLength = szExtention.length();
-    // FIXME Debugging print
-    std::cout << "Extension: " << szExtention << " is length: " << szExtentionLength << std::endl;
     for (int i = 0; i < szExtentionLength; i++)
     {
         std::cout << "I'm here!" << std::endl;
@@ -702,18 +692,14 @@ bool Image::SaveFile(std::string infilename)
 ///////////////////////////////////////////////////////////////////////
 bool Image::OpenFile(std::string infilename)
 {
-    // FIXME Need generalize extension to lowercase
 
     // Isolate the file extension from the filename
     int iLoc = infilename.find_last_of('.');
     if (iLoc == std::string::npos) return false; // No extension found
     std::string szExtention = infilename.substr(iLoc + 1);
     int szExtentionLength = szExtention.length();
-    // FIXME Debugging print
-    std::cout << "Extension: " << szExtention << " is length: " << szExtentionLength << std::endl;
     for (int i = 0; i < szExtentionLength; i++)
     {
-        std::cout << "I'm here!" << std::endl;
         szExtention[i] = std::tolower(szExtention[i]); // Convert to lowercase
     }
 

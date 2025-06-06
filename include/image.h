@@ -8,6 +8,10 @@ class Image
     private:
         int m_width;
         int m_height;
+        int m_matchQuality = 95;    // Percentage Tolerance for JPEG loss
+        int m_resolution;           // Resolution for JPEG compression
+        std::string m_extension;    // File extension for the image
+
         int openJPEG(struct jpeg_decompress_struct *cinfo,
                         std::string infilename);
 
@@ -19,16 +23,16 @@ class Image
 
         bool operator==(const Image &other) const;            
         
-        uint8_t GetPixalRed(uint8_t x, uint8_t y); // Get the red value of a pixel
-        uint8_t GetPixalGreen(uint8_t x, uint8_t y); // Get the green value of a pixel
-        uint8_t GetPixalBlue(uint8_t x, uint8_t y); // Get the blue value of a pixel
+        uint8_t GetPixalRed(uint8_t x, uint8_t y);          // Get the red value of a pixel
+        uint8_t GetPixalGreen(uint8_t x, uint8_t y);        // Get the green value of a pixel
+        uint8_t GetPixalBlue(uint8_t x, uint8_t y);         // Get the blue value of a pixel
 
-        void SetPixalRed(uint8_t x, uint8_t y,uint8_t r); // Set the red value of a pixel
-        void SetPixalGreen(uint8_t x, uint8_t y, uint8_t g); // Set the green value of a pixel
-        void SetPixalBlue(uint8_t x, uint8_t y, uint8_t b); // Set the blue value of a pixel
+        void SetPixalRed(uint8_t x, uint8_t y,uint8_t r);       // Set the red value of a pixel
+        void SetPixalGreen(uint8_t x, uint8_t y, uint8_t g);    // Set the green value of a pixel
+        void SetPixalBlue(uint8_t x, uint8_t y, uint8_t b);     // Set the blue value of a pixel
 
-        bool SavePNG(std::string filePath); // Save the image to a png file
-        bool OpenPNG(std::string filePath); // Read the image from a png file
+        bool SavePNG(std::string filePath);     // Save the image to a png file
+        bool OpenPNG(std::string filePath);     // Read the image from a png file
 
         bool SaveJPEG(std::string filename, int quality); // Save the image to a jpg file
         int OpenJPEG(std::string infilename);
