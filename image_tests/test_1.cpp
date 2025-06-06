@@ -13,6 +13,67 @@ int main(int argc, char **argv) {
     return RUN_ALL_TESTS();
 }
 
+TEST(ImageFileIOTest, OpenHandlesUppercaseExtension) {
+    Image img(10, 10);
+    EXPECT_TRUE(img.SaveFile("test_uppercase.JPG"));
+
+    Image loaded;
+    EXPECT_TRUE(loaded.OpenFile("test_uppercase.JPG"));
+}
+
+
+TEST(ImageFileIOTest, OpenFailsOnMissingFile) {
+    Image img;
+    EXPECT_FALSE(img.OpenFile("nonexistent.jpg"));
+}
+
+
+TEST(ImageFileIOTest, SaveFailsOnUnsupportedExtension) {
+    Image img(10, 10);
+    EXPECT_FALSE(img.SaveFile("test.unsupported"));
+}
+
+TEST(ImageFileIOTest, OpenFailsOnUnsupportedExtension) {
+    Image img;
+    EXPECT_FALSE(img.OpenFile("test.unsupported"));
+}
+
+
+TEST(ImageFileIOTest, SaveAndLoadJPEGThroughGeneralInterface) {
+    Image img(10, 10);
+    img.SetPixalRed(2, 2, 90);
+    img.SetPixalGreen(2, 2, 140);
+    img.SetPixalBlue(2, 2, 190);
+
+    EXPECT_TRUE(img.SaveFile("test_general.jpeg"));
+
+    Image loaded;
+    EXPECT_TRUE(loaded.OpenFile("test_general.jpeg"));
+
+    // JPEG is lossy, so allow for minor difference
+    EXPECT_NEAR(loaded.GetPixalRed(2, 2), 90, 10);
+    EXPECT_NEAR(loaded.GetPixalGreen(2, 2), 140, 10);
+    EXPECT_NEAR(loaded.GetPixalBlue(2, 2), 190, 10);
+}
+
+
+TEST(ImageFileIOTest, SaveAndLoadPNGThroughGeneralInterface) {
+    Image img(10, 10);
+    img.SetPixalRed(1, 1, 50);
+    img.SetPixalGreen(1, 1, 100);
+    img.SetPixalBlue(1, 1, 150);
+
+    EXPECT_TRUE(img.SaveFile("test_general.png"));
+
+    Image loaded;
+    EXPECT_TRUE(loaded.OpenFile("test_general.png"));
+
+    EXPECT_EQ(loaded.GetPixalRed(1, 1), 50);
+    EXPECT_EQ(loaded.GetPixalGreen(1, 1), 100);
+    EXPECT_EQ(loaded.GetPixalBlue(1, 1), 150);
+}
+
+
 TEST(ImageSaveTest, SaveJPGReturnsTrueAndCreatesFile) {
     int width = 3840;
     int height = 2160;
@@ -23,7 +84,7 @@ TEST(ImageSaveTest, SaveJPGReturnsTrueAndCreatesFile) {
     Image img(width, height);
 
     // Call Save_jpg and assert it returns true
-    EXPECT_TRUE(img.Save_jpeg(const_cast<char*>(filename), quality));
+    EXPECT_TRUE(img.SaveJPEG(const_cast<char*>(filename), quality));
 
     // Optionally: Check if the file was created
     std::ifstream f(filename);
@@ -32,13 +93,13 @@ TEST(ImageSaveTest, SaveJPGReturnsTrueAndCreatesFile) {
 
 TEST(ImageTest, ZeroSizeImage) {
     Image img(0, 0);
-    EXPECT_FALSE(img.Save_png("zero.png"));  // Should not save
+    EXPECT_FALSE(img.SavePNG("zero.png"));  // Should not save
 }
 
 
 TEST(ImageTest, ReadInvalidFile) {
     Image img;
-    EXPECT_FALSE(img.Read_png("non_existent_file.png"));
+    EXPECT_FALSE(img.OpenPNG("non_existent_file.png"));
 }
 
 
@@ -58,10 +119,10 @@ TEST(ImageTest, SaveAndReadConsistency) {
     img.SetPixalGreen(0, 0, 150);
     img.SetPixalBlue(0, 0, 200);
 
-    img.Save_png("temp_test_image.png");
+    img.SavePNG("temp_test_image.png");
 
     Image loaded;
-    ASSERT_TRUE(loaded.Read_png("temp_test_image.png"));
+    ASSERT_TRUE(loaded.OpenPNG("temp_test_image.png"));
     EXPECT_EQ(loaded.GetPixalRed(0, 0), 100);
     EXPECT_EQ(loaded.GetPixalGreen(0, 0), 150);
     EXPECT_EQ(loaded.GetPixalBlue(0, 0), 200);
@@ -117,11 +178,11 @@ TEST(ImageTest, SaveAndReadSMPTEColorBand)
     SMPTE_CB = make_color_band(SMPTE_CB, height, width);
 
     // Save the image
-    EXPECT_TRUE(SMPTE_CB->Save_png("SMPTE_Color_Band.png")) << "Failed to save SMPTE_Color_Band!";
+    EXPECT_TRUE(SMPTE_CB->SavePNG("SMPTE_Color_Band.png")) << "Failed to save SMPTE_Color_Band!";
 
     // Read the image back
     Image* check_image = new Image();
-    EXPECT_TRUE(check_image->Read_png("SMPTE_Color_Band.png")) << "Failed to read SMPTE_Color_Band!";
+    EXPECT_TRUE(check_image->OpenPNG("SMPTE_Color_Band.png")) << "Failed to read SMPTE_Color_Band!";
 
     // Check if the image data matches
     EXPECT_TRUE(*check_image == *SMPTE_CB) << "Image data and dimensions do not match!";
@@ -145,11 +206,11 @@ TEST(ImageTest, SaveandReadGradient)
     gradient = make_gradient(gradient, height, width);
 
     // Save the image
-    EXPECT_TRUE(gradient->Save_jpeg(filename1.c_str(), quality)) << error1.c_str();
+    EXPECT_TRUE(gradient->SaveJPEG(filename1.c_str(), quality)) << error1.c_str();
 
     // Read the image back
     Image* check_image = new Image();
-    EXPECT_TRUE(check_image->Read_png(filename1.c_str())) << error2.c_str();
+    EXPECT_TRUE(check_image->OpenJPEG(filename1.c_str())) << error2.c_str();
 
     EXPECT_TRUE(*check_image == *gradient) << error3.c_str();
 

@@ -6,7 +6,9 @@
 #include <cstdio>
 #include <stdlib.h>
 #include <unordered_map>
+#include <cctype>
 
+#include <functional> // for std::function
 
 #include "image.h" // for Image class
 
@@ -473,7 +475,7 @@ bool Image::OpenPNG(std::string filePath)
 ///////////////////////////////////////////////////////////////////////
 // Save the image using turbo jpeg
 ///////////////////////////////////////////////////////////////////////
-bool Image::SaveJPEG(std::string filename, int quality)
+bool Image::SaveJPEG(std::string filename, int quality = 100)
 {
     // Create a jpeg compression object
     struct jpeg_compress_struct cinfo;
@@ -610,6 +612,9 @@ int Image::openJPEG(struct jpeg_decompress_struct *cinfo, std::string infilename
     // This is type-cast as void because we are only reading entire images
     (void)jpeg_read_header(cinfo, TRUE);
 
+    m_width = cinfo->image_width; // Set the image width
+    m_height = cinfo->image_height; // Set the image height
+
 
     // Step 4: set parameters for decompression 
     //      Note: This step is optional, but it allows you to change
@@ -652,41 +657,85 @@ int Image::openJPEG(struct jpeg_decompress_struct *cinfo, std::string infilename
 }
 
 ///////////////////////////////////////////////////////////////////////
-// Public Interface to Save the image, regardless of format
+// Public Interface to Save the image, regardless of format.
+// Note: This is currently only able to save at default quality.
 ///////////////////////////////////////////////////////////////////////
 bool Image::SaveFile(std::string infilename)
 {
     // Isolate the file extension from the filename
-    int iLoc = infilename.find_last_of('.')
+    int iLoc = infilename.find_last_of('.');
     if (iLoc == std::string::npos) return false; // No extension found
-    string szExtention = infilename.substr(iLoc + 1);
+    std::string szExtention = infilename.substr(iLoc + 1);
+    int szExtentionLength = szExtention.length();
+    // FIXME Debugging print
+    std::cout << "Extension: " << szExtention << " is length: " << szExtentionLength << std::endl;
+    for (int i = 0; i < szExtentionLength; i++)
+    {
+        std::cout << "I'm here!" << std::endl;
+        szExtention[i] = std::tolower(szExtention[i]); // Convert to lowercase
+    }
 
-    std::unordered_map<std::string, std::functions<boll(const std::string&)>> saveFunctions;
-    saveFunctions["png"] = &Image::SavePNG;
-    saveFunctions["jpg"] = &Image::SaveJPEG;
-    saveFunctions["jpeg"] = &Image::SaveJPEG;
+    std::unordered_map<std::string, 
+        std::function<bool(const std::string filePath)>> saveFunctions;
+    saveFunctions["png"] = [this](std::string filePath)
+    {
+        return this->SavePNG(filePath);
+    };
+    saveFunctions["jpg"] = [this](std::string filePath)
+    {
+        return this->SaveJPEG(filePath);
+    };
+    saveFunctions["jpeg"] = [this](std::string filePath)
+    {
+        return this->SaveJPEG(filePath);
+    };
+
+    auto extensionFound = saveFunctions.find(szExtention);
 
     // Check if the extension is in the map
     // Return false if it fails to save or if the extension is not supported
-    if (saveFunctions[szExtention](infilename)) return true ? return false;
+    return (extensionFound != saveFunctions.end()) ? (saveFunctions[szExtention](infilename)) : false;
 }
 
 ///////////////////////////////////////////////////////////////////////
-// Public Interface to Open the image, regardless of format
+// Public Interface to Open the image, regardless of format.
 ///////////////////////////////////////////////////////////////////////
 bool Image::OpenFile(std::string infilename)
 {
-    // Isolate the file extension from the filename
-    int iLoc = infilename.find_last_of('.')
-    if (iLoc == std::string::npos) return false; // No extension found
-    string szExtention = infilename.substr(iLoc + 1);
+    // FIXME Need generalize extension to lowercase
 
-    std::unordered_map<std::string, std::functions<boll(const std::string&)>> openFunctions;
-    openFunctions["png"] = &Image::OpenPNG;
-    openFunctions["jpg"] = &Image::OpenJPEG;
-    openFunctions["jpeg"] = &Image::OpenJPEG;
+    // Isolate the file extension from the filename
+    int iLoc = infilename.find_last_of('.');
+    if (iLoc == std::string::npos) return false; // No extension found
+    std::string szExtention = infilename.substr(iLoc + 1);
+    int szExtentionLength = szExtention.length();
+    // FIXME Debugging print
+    std::cout << "Extension: " << szExtention << " is length: " << szExtentionLength << std::endl;
+    for (int i = 0; i < szExtentionLength; i++)
+    {
+        std::cout << "I'm here!" << std::endl;
+        szExtention[i] = std::tolower(szExtention[i]); // Convert to lowercase
+    }
+
+
+    std::unordered_map<std::string, 
+        std::function<bool(const std::string filePath)>> openFunctions;
+    openFunctions["png"] = [this](std::string filePath)
+    {
+        return this->OpenPNG(filePath);
+    };
+    openFunctions["jpg"] = [this](std::string filePath)
+    {
+        return this->OpenJPEG(filePath);
+    };
+    openFunctions["jpeg"] = [this](std::string filePath)
+    {
+        return this->OpenJPEG(filePath);
+    };
+
+    auto extensionFound = openFunctions.find(szExtention);
 
     // Check if the extension is in the map
     // Return false if it fails to save or if the extension is not supported
-    if (saveFunctions[szExtention](infilename)) return true ? return false;
+    return (extensionFound != openFunctions.end()) ? (openFunctions[szExtention](infilename)) : false;
 }
