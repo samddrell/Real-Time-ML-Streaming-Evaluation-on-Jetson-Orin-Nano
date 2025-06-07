@@ -13,6 +13,72 @@ int main(int argc, char **argv) {
     return RUN_ALL_TESTS();
 }
 
+TEST(ImageTest, DimensionMismatch)
+{
+    Image img1(100, 100);
+    Image img2(200, 100); // Different width
+
+    EXPECT_FALSE(img1 == img2) << "Should fail on size mismatch";
+    EXPECT_FALSE(img1.compare(img2, 0.1)) << "Should fail on size mismatch even with tolerance";
+}
+
+TEST(ImageTest, JPEGCompareFailsWithTightTolerance)
+{
+    int width = 255;
+    int height = 255;
+    double allowedError = 0.0001; // Extremely strict
+    int quality = 10;
+
+    Image* original = make_gradient(new Image(width, height), height, width);
+    ASSERT_TRUE(original->SaveJPEG("gradient_lowqual.jpg", quality)) << "Failed to save JPEG";
+
+    Image* loaded = new Image();
+    ASSERT_TRUE(loaded->OpenJPEG("gradient_lowqual.jpg")) << "Failed to read JPEG";
+
+    EXPECT_FALSE(*original == *loaded) << "JPEGs should not match exactly";
+    EXPECT_FALSE(original->compare(*loaded, allowedError)) << "Should exceed tight error threshold";
+
+    delete original;
+    delete loaded;
+}
+
+TEST(ImageTest, JPEGCompareWithLossTolerance)
+{
+    int width = 255;
+    int height = 255;
+    double allowedError = 0.01; // 1% error tolerance
+    int quality = 85;
+
+    Image* original = make_gradient(new Image(width, height), height, width);
+    ASSERT_TRUE(original->SaveJPEG("gradient_test.jpg", quality)) << "Failed to save JPEG";
+
+    Image* loaded = new Image();
+    ASSERT_TRUE(loaded->OpenJPEG("gradient_test.jpg")) << "Failed to read JPEG";
+
+    EXPECT_FALSE(*original == *loaded) << "JPEGs should not match exactly due to compression";
+    EXPECT_TRUE(original->compare(*loaded, allowedError)) << "JPEGs should be similar within error threshold";
+
+    delete original;
+    delete loaded;
+}
+
+TEST(ImageTest, ExactPNGMatch)
+{
+    int width = 255;
+    int height = 255;
+
+    Image* img1 = make_color_band(new Image(width, height), height, width);
+    ASSERT_TRUE(img1->SavePNG("color_band_test.png")) << "Failed to save PNG";
+
+    Image* img2 = new Image();
+    ASSERT_TRUE(img2->OpenPNG("color_band_test.png")) << "Failed to read PNG";
+
+    EXPECT_TRUE(*img1 == *img2) << "PNG images should match exactly";
+
+    delete img1;
+    delete img2;
+}
+
 TEST(ImageFileIOTest, OpenHandlesUppercaseExtension) {
     Image img(10, 10);
     EXPECT_TRUE(img.SaveFile("test_uppercase.JPG"));
@@ -128,32 +194,6 @@ TEST(ImageTest, SaveAndReadConsistency) {
     EXPECT_EQ(loaded.GetPixalBlue(0, 0), 200);
 }
 
-
-TEST(ImageTest, EqualityOperator) {
-    Image img1(10, 10);
-    Image img2(10, 10);
-
-    img1.SetPixalRed(0, 0, 255);
-    img2.SetPixalRed(0, 0, 255);
-
-    img1.SetPixalGreen(0, 0, 0);
-    img1.SetPixalBlue(0, 0, 0);
-
-    img2.SetPixalGreen(0, 0, 0);
-    img2.SetPixalBlue(0, 0, 0);
-
-
-    EXPECT_TRUE(img1 == img2);
-    // Debugging print
-    std::cout << "Images are equal." << std::endl;
-
-    img2.SetPixalBlue(0, 0, 255);
-    EXPECT_FALSE(img1 == img2); // Now they differ
-    // Debugging print
-    std::cout << "Images are not equal." << std::endl;
-}
-
-
 TEST(ImageTest, SetAndGetPixelValues) {
     Image img(10, 10);
     img.SetPixalRed(5, 5, 123);
@@ -171,57 +211,6 @@ TEST(ImageTest, ConstructorInitializesCorrectly) {
     EXPECT_EQ(img.GetPixalRed(0, 0), 0);
     EXPECT_EQ(img.GetPixalGreen(0, 0), 0);
     EXPECT_EQ(img.GetPixalBlue(0, 0), 0);
-}
-
-TEST(ImageTest, SaveAndReadSMPTEColorBand)
-{
-    int height = 255;
-    int width = 255;
-
-    Image* SMPTE_CB = new Image(width, height);
-    SMPTE_CB = make_color_band(SMPTE_CB, height, width);
-
-    // Save the image
-    EXPECT_TRUE(SMPTE_CB->SavePNG("SMPTE_Color_Band.png")) << "Failed to save SMPTE_Color_Band!";
-
-    // Read the image back
-    Image* check_image = new Image();
-    EXPECT_TRUE(check_image->OpenPNG("SMPTE_Color_Band.png")) << "Failed to read SMPTE_Color_Band!";
-
-    // Check if the image data matches
-    EXPECT_TRUE(*check_image == *SMPTE_CB) << "Image data and dimensions do not match!";
-
-    delete SMPTE_CB;
-    delete check_image;
-}
-
-TEST(ImageTest, SaveandReadGradient)
-{
-    int height = 255;
-    int width = 255;
-    int quality = 100; // Quality for JPEG
-    std::string filename1 = "gradient.jpeg";
-    std::string filename2 = "gradient_out.ppm";
-    std::string error1 = "Failed to save gradient";
-    std::string error2 = "Failed to read gradient";
-    std::string error3 = "Image data and dimensions do not match!";
-
-    Image* gradient = new Image(width, height);
-    gradient = make_gradient(gradient, height, width);
-
-    // Save the image
-    EXPECT_TRUE(gradient->SaveJPEG(filename1.c_str(), quality)) << error1.c_str();
-    std::cout << "Saved gradient to " << filename1 << std::endl;
-
-    // Read the image back
-    Image* check_image = new Image();
-    EXPECT_TRUE(check_image->OpenJPEG(filename1.c_str())) << error2.c_str();
-    std::cout << "Read gradient from " << filename1 << std::endl;
-
-    EXPECT_TRUE(*check_image == *gradient) << error3.c_str();
-    std::cout << "Image data and dimensions match!" << std::endl;
-
-    delete gradient;
 }
 
 Image* make_gradient(Image* image, uint8_t height, uint8_t width)

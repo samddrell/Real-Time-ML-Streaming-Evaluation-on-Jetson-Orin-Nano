@@ -130,49 +130,55 @@ Image::~Image() // Free memory
 ///////////////////////////////////////////////////////////////////////
 bool Image::operator==(const Image &other) const
 {
-
     // Check if the dimensions of the images are equal
     if (m_width != other.m_width || m_height != other.m_height)
     {
         return false; // If dimensions are not equal, return false
     }    
 
-    uint mismatchCount = 0; // Initialize mismatch count
-
     for (int i = 0; i < m_resolution * 3; i++)
     {
         // If any pixel data is not equal, return false
         if (m_data[i] != other.m_data[i])
         {
-            mismatchCount += static_cast<uint>(other.m_data[i]) - 
-                static_cast<uint>(m_data[i]); // Calculate the difference
+            return false;
         }
     }
+    return true; // If all pixel data is equal, return true
+}
 
-    if (m_extension == "jpeg")
+///////////////////////////////////////////////////////////////////////
+// Compare two images, within a certain percent error
+///////////////////////////////////////////////////////////////////////
+bool Image::compare(const Image &other, double maxPercentError) const
+{
+    if (m_width != other.m_width || m_height != other.m_height)
     {
-        if (static_cast<double>(mismatchCount)/static_cast<double>(m_resolution * 3) > static_cast<double>(m_matchQuality))
+        return false; 
+    }    
+
+    double mismatchCount = 0; 
+
+    for (int i = 0; i < m_resolution * 3; i++)
+    {
+        if (m_data[i] != other.m_data[i])
         {
-            return false; // If any pixel data is not equal, return false
+            mismatchCount += static_cast<double>(other.m_data[i]) - 
+                static_cast<double>(m_data[i]); // Calculate the difference
         }
-        else
-        {
-            return true; // If all pixel data is equal within the match quality tolerance, return true
-        }
+    }
+    
+    double percentError = mismatchCount / static_cast<double>(m_resolution * 3 * 255);
+
+    if( percentError > maxPercentError )
+    {
+        return false; 
     }
     else
     {
-        if (mismatchCount != 0)
-        {
-            return false; // If any pixel data is not equal, return false
-        }
-        else
-        {
-            return true; // If all pixel data is equal, return true
-        }
+        return true;
     }
-}
-    
+}  
 
 ///////////////////////////////////////////////////////////////////////
 // GET the RED value of a pixel
@@ -370,7 +376,6 @@ bool Image::SavePNG(std::string filePath)
     
     png_destroy_write_struct(&png, &info);
 
-    m_extension = "png"; // Set the file extension to png
     return true; // Return true if successful
 
 }
@@ -446,7 +451,6 @@ bool Image::OpenPNG(std::string filePath)
 
     m_height = png_get_image_height(png, info);
     m_width = png_get_image_width(png, info);
-    m_extension = "png"; // Set the file extension to png
     m_resolution = m_width * m_height; // Calculate the resolution
     m_data = new uint8_t[m_resolution * 3];
 
@@ -537,7 +541,6 @@ bool Image::SaveJPEG(std::string filename, int quality = 100)
     jpeg_destroy_compress(&cinfo); // Release the JPEG compression object
     delete[] row_pointers;
 
-    m_extension = "jpeg"; // Set the file extension to jpg
     return true; // Return true if successful
 }
 
@@ -605,7 +608,6 @@ int Image::openJPEG(struct jpeg_decompress_struct *cinfo, std::string infilename
     m_width = cinfo->image_width; // Set the image width
     m_height = cinfo->image_height; // Set the image height
     m_resolution = m_width * m_height; // Calculate the resolution
-    m_extension = "jpeg"; // Set the file extension to jpeg
 
 
     // Step 4: set parameters for decompression 

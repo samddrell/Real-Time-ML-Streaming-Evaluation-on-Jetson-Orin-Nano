@@ -8,9 +8,7 @@ class Image
     private:
         int m_width;
         int m_height;
-        int m_matchQuality = 95;    // Percentage Tolerance for JPEG loss
         int m_resolution;           // Resolution for JPEG compression
-        std::string m_extension;    // File extension for the image
 
         int openJPEG(struct jpeg_decompress_struct *cinfo,
                         std::string infilename);
@@ -21,7 +19,8 @@ class Image
         Image(); // Default constructor
         Image(int w, int h);    // Alocate memory for the Array
 
-        bool operator==(const Image &other) const;            
+        bool operator==(const Image &other) const;      
+        bool compare(const Image &other, double maxPercentError = 0.0) const; // Compare two images      
         
         uint8_t GetPixalRed(uint8_t x, uint8_t y);          // Get the red value of a pixel
         uint8_t GetPixalGreen(uint8_t x, uint8_t y);        // Get the green value of a pixel
