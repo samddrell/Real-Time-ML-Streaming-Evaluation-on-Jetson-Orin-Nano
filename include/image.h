@@ -8,7 +8,7 @@ class Image
     private:
         int m_width;
         int m_height;
-        int m_resolution;           // Resolution for JPEG compression
+        int m_buffSize;           // Resolution for JPEG compression
 
         int openJPEG(struct jpeg_decompress_struct *cinfo,
                         std::string infilename);

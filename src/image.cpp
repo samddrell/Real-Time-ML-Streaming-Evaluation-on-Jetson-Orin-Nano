@@ -104,12 +104,12 @@ Image::Image(int w, int h)
 {
     m_width = w;
     m_height = h;
-    m_resolution = m_width * m_height; // Calculate the resolution
+    m_buffSize = m_width * m_height * 3; // Calculate the resolution
 
     // Allocate memory for the pixel data Array
     // Initialize to 0
     if(w != 0 || h != 0) 
-        m_data = new uint8_t[m_resolution * 3](); 
+        m_data = new uint8_t[m_buffSize](); 
     else
         m_data = nullptr; // If width or height is 0, set m_data to nullptr
 }    
@@ -136,7 +136,7 @@ bool Image::operator==(const Image &other) const
         return false; // If dimensions are not equal, return false
     }    
 
-    for (int i = 0; i < m_resolution * 3; i++)
+    for (int i = 0; i < m_buffSize; i++)
     {
         // If any pixel data is not equal, return false
         if (m_data[i] != other.m_data[i])
@@ -159,7 +159,7 @@ bool Image::compare(const Image &other, double maxPercentError) const
 
     double mismatchCount = 0; 
 
-    for (int i = 0; i < m_resolution * 3; i++)
+    for (int i = 0; i < m_buffSize; i++)
     {
         if (m_data[i] != other.m_data[i])
         {
@@ -168,7 +168,7 @@ bool Image::compare(const Image &other, double maxPercentError) const
         }
     }
     
-    double percentError = mismatchCount / static_cast<double>(m_resolution * 3 * 255);
+    double percentError = mismatchCount / static_cast<double>(m_buffSize * 255);
 
     if( percentError > maxPercentError )
     {
@@ -451,8 +451,8 @@ bool Image::OpenPNG(std::string filePath)
 
     m_height = png_get_image_height(png, info);
     m_width = png_get_image_width(png, info);
-    m_resolution = m_width * m_height; // Calculate the resolution
-    m_data = new uint8_t[m_resolution * 3];
+    m_buffSize = m_width * m_height * 3; // Calculate the resolution
+    m_data = new uint8_t[m_buffSize];
 
     for (int i = 0; i < m_height; i++)
     {
@@ -607,7 +607,7 @@ int Image::openJPEG(struct jpeg_decompress_struct *cinfo, std::string infilename
 
     m_width = cinfo->image_width; // Set the image width
     m_height = cinfo->image_height; // Set the image height
-    m_resolution = m_width * m_height; // Calculate the resolution
+    m_buffSize = m_width * m_height * 3; // Calculate the resolution
 
 
     // Step 4: set parameters for decompression 
@@ -625,7 +625,7 @@ int Image::openJPEG(struct jpeg_decompress_struct *cinfo, std::string infilename
     buffer = (*cinfo->mem->alloc_sarray)((j_common_ptr)cinfo, JPOOL_IMAGE, row_stride, 1);
 
     // Write to data member m_data adaptation
-    m_data = new uint8_t[m_resolution * 3];
+    m_data = new uint8_t[m_buffSize];
 
 
     // Step 6: Line by line, read jpeg to ppm
