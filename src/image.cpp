@@ -183,7 +183,7 @@ bool Image::compare(const Image &other, double maxPercentError) const
 ///////////////////////////////////////////////////////////////////////
 // GET the RED value of a pixel
 ///////////////////////////////////////////////////////////////////////
-uint8_t Image::GetPixalRed(uint8_t x, uint8_t y) 
+uint8_t Image::GetPixelRed(uint8_t x, uint8_t y) 
 {
     if (x >= m_width || y >= m_height) 
     {
@@ -194,7 +194,7 @@ uint8_t Image::GetPixalRed(uint8_t x, uint8_t y)
 ///////////////////////////////////////////////////////////////////////
 // GET the GREEN value of a pixel
 ///////////////////////////////////////////////////////////////////////
-uint8_t Image::GetPixalGreen(uint8_t x, uint8_t y) 
+uint8_t Image::GetPixelGreen(uint8_t x, uint8_t y) 
 {
     if (x >= m_width || y >= m_height) 
     {
@@ -206,7 +206,7 @@ uint8_t Image::GetPixalGreen(uint8_t x, uint8_t y)
 ///////////////////////////////////////////////////////////////////////
 // GET the BLUE value of a pixel
 ///////////////////////////////////////////////////////////////////////
-uint8_t Image::GetPixalBlue(uint8_t x, uint8_t y) 
+uint8_t Image::GetPixelBlue(uint8_t x, uint8_t y) 
 {
     if (x >= m_width || y >= m_height) 
     {
@@ -219,7 +219,7 @@ uint8_t Image::GetPixalBlue(uint8_t x, uint8_t y)
 ///////////////////////////////////////////////////////////////////////
 // SET the RED value of a pixel
 ///////////////////////////////////////////////////////////////////////
-void Image::SetPixalRed(uint8_t x, uint8_t y,uint8_t r) 
+void Image::SetPixelRed(uint8_t x, uint8_t y,uint8_t r) 
 {
     if (x >= m_width || y >= m_height) 
     {
@@ -231,7 +231,7 @@ void Image::SetPixalRed(uint8_t x, uint8_t y,uint8_t r)
 ///////////////////////////////////////////////////////////////////////
 // SET the GREEN value of a pixel
 ///////////////////////////////////////////////////////////////////////
-void Image::SetPixalGreen(uint8_t x, uint8_t y, uint8_t g) 
+void Image::SetPixelGreen(uint8_t x, uint8_t y, uint8_t g) 
 {
     if (x >= m_width || y >= m_height) 
     {
@@ -243,7 +243,7 @@ void Image::SetPixalGreen(uint8_t x, uint8_t y, uint8_t g)
 ///////////////////////////////////////////////////////////////////////
 // SET the BLUE value of a pixel
 ///////////////////////////////////////////////////////////////////////
-void Image::SetPixalBlue(uint8_t x, uint8_t y, uint8_t b) 
+void Image::SetPixelBlue(uint8_t x, uint8_t y, uint8_t b) 
 {
     if (x >= m_width || y >= m_height) 
     {
