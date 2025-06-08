@@ -468,7 +468,7 @@ bool Image::OpenPNG(std::string filePath)
 ///////////////////////////////////////////////////////////////////////
 // Save the image using turbo jpeg
 ///////////////////////////////////////////////////////////////////////
-bool Image::SaveJPEG(std::string filename, int quality = 100)
+bool Image::SaveJPEG(std::string filename, int quality)
 {
     // Create a jpeg compression object
     struct jpeg_compress_struct cinfo;
@@ -654,12 +654,12 @@ int Image::openJPEG(struct jpeg_decompress_struct *cinfo, std::string infilename
 // Public Interface to Save the image, regardless of format.
 // Note: This is currently only able to save at default quality.
 ///////////////////////////////////////////////////////////////////////
-bool Image::SaveFile(std::string infilename)
+bool Image::SaveFile(std::string infilename,int quality)
 {
     // Isolate the file extension from the filename
     int iLoc = infilename.find_last_of('.');
     if (iLoc == std::string::npos) return false; // No extension found
-    std::string szExtention = infilename.substr(iLoc + 1);
+    std::string szExtention = infilename.substr(iLoc);
     int szExtentionLength = szExtention.length();
     for (int i = 0; i < szExtentionLength; i++)
     {
@@ -669,17 +669,17 @@ bool Image::SaveFile(std::string infilename)
 
     std::unordered_map<std::string, 
         std::function<bool(const std::string filePath)>> saveFunctions;
-    saveFunctions["png"] = [this](std::string filePath)
+    saveFunctions[".png"] = [this](std::string filePath)
     {
         return this->SavePNG(filePath);
     };
-    saveFunctions["jpg"] = [this](std::string filePath)
+    saveFunctions[".jpg"] = [this,quality](std::string filePath)
     {
-        return this->SaveJPEG(filePath);
+        return this->SaveJPEG(filePath,quality);
     };
-    saveFunctions["jpeg"] = [this](std::string filePath)
+    saveFunctions[".jpeg"] = [this,quality](std::string filePath)
     {
-        return this->SaveJPEG(filePath);
+        return this->SaveJPEG(filePath,quality);
     };
 
     auto extensionFound = saveFunctions.find(szExtention);
@@ -698,7 +698,7 @@ bool Image::OpenFile(std::string infilename)
     // Isolate the file extension from the filename
     int iLoc = infilename.find_last_of('.');
     if (iLoc == std::string::npos) return false; // No extension found
-    std::string szExtention = infilename.substr(iLoc + 1);
+    std::string szExtention = infilename.substr(iLoc);
     int szExtentionLength = szExtention.length();
     for (int i = 0; i < szExtentionLength; i++)
     {
@@ -708,15 +708,15 @@ bool Image::OpenFile(std::string infilename)
 
     std::unordered_map<std::string, 
         std::function<bool(const std::string filePath)>> openFunctions;
-    openFunctions["png"] = [this](std::string filePath)
+    openFunctions[".png"] = [this](std::string filePath)
     {
         return this->OpenPNG(filePath);
     };
-    openFunctions["jpg"] = [this](std::string filePath)
+    openFunctions[".jpg"] = [this](std::string filePath)
     {
         return this->OpenJPEG(filePath);
     };
-    openFunctions["jpeg"] = [this](std::string filePath)
+    openFunctions[".jpeg"] = [this](std::string filePath)
     {
         return this->OpenJPEG(filePath);
     };

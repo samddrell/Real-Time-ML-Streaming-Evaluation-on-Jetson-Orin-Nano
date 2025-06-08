@@ -33,10 +33,10 @@ class Image
         bool SavePNG(std::string filePath);     // Save the image to a png file
         bool OpenPNG(std::string filePath);     // Read the image from a png file
 
-        bool SaveJPEG(std::string filename, int quality); // Save the image to a jpg file
+        bool SaveJPEG(std::string filename, int quality = 100); // Save the image to a jpg file
         int OpenJPEG(std::string infilename);
 
-        bool SaveFile(std::string infilename);
+        bool SaveFile(std::string infilename, int quality = 100);
         bool OpenFile(std::string infilename);
 
         ~Image(); // Free memory
