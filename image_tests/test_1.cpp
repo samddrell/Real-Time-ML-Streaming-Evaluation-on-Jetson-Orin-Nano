@@ -3,6 +3,8 @@
 #include <gtest/gtest.h>
 #include "image.h"
 #include <fstream>
+#include <filesystem>
+
 
 Image* make_color_band(Image* image, uint8_t height, uint8_t width);
 Image* make_gradient(Image* image, uint8_t height, uint8_t width);
@@ -13,7 +15,28 @@ int main(int argc, char **argv) {
     return RUN_ALL_TESTS();
 }
 
-TEST(ImageTest, DimensionMismatch)
+
+class ImageTest : public ::testing::Test 
+{
+protected:
+    std::vector<std::string> files_to_delete;
+
+    void TearDown() override 
+    {
+        for (const auto& file : files_to_delete) 
+        {
+            std::filesystem::remove(file);
+        }
+    }
+
+    void TrackFile(const std::string& filename) 
+    {
+        files_to_delete.push_back(filename);
+    }
+};
+
+
+TEST_F(ImageTest, DimensionMismatch)
 {
     Image img1(100, 100);
     Image img2(200, 100); // Different width
@@ -22,7 +45,7 @@ TEST(ImageTest, DimensionMismatch)
     EXPECT_FALSE(img1.compare(img2, 0.1)) << "Should fail on size mismatch even with tolerance";
 }
 
-TEST(ImageTest, JPEGCompareFailsWithTightTolerance)
+TEST_F(ImageTest, JPEGCompareFailsWithTightTolerance)
 {
     int width = 255;
     int height = 255;
@@ -31,6 +54,7 @@ TEST(ImageTest, JPEGCompareFailsWithTightTolerance)
 
     Image* original = make_gradient(new Image(width, height), height, width);
     ASSERT_TRUE(original->SaveJPEG("gradient_lowqual.jpg", quality)) << "Failed to save JPEG";
+    TrackFile("gradient_lowqual.jpg");
 
     Image* loaded = new Image();
     ASSERT_TRUE(loaded->OpenJPEG("gradient_lowqual.jpg")) << "Failed to read JPEG";
@@ -42,7 +66,7 @@ TEST(ImageTest, JPEGCompareFailsWithTightTolerance)
     delete loaded;
 }
 
-TEST(ImageTest, JPEGCompareWithLossTolerance)
+TEST_F(ImageTest, JPEGCompareWithLossTolerance)
 {
     int width = 255;
     int height = 255;
@@ -51,6 +75,7 @@ TEST(ImageTest, JPEGCompareWithLossTolerance)
 
     Image* original = make_gradient(new Image(width, height), height, width);
     ASSERT_TRUE(original->SaveJPEG("gradient_test.jpg", quality)) << "Failed to save JPEG";
+    TrackFile("gradient_test.jpg");
 
     Image* loaded = new Image();
     ASSERT_TRUE(loaded->OpenJPEG("gradient_test.jpg")) << "Failed to read JPEG";
@@ -62,13 +87,14 @@ TEST(ImageTest, JPEGCompareWithLossTolerance)
     delete loaded;
 }
 
-TEST(ImageTest, ExactPNGMatch)
+TEST_F(ImageTest, ExactPNGMatch)
 {
     int width = 255;
     int height = 255;
 
     Image* img1 = make_color_band(new Image(width, height), height, width);
     ASSERT_TRUE(img1->SavePNG("color_band_test.png")) << "Failed to save PNG";
+    TrackFile("color_band_test.png");
 
     Image* img2 = new Image();
     ASSERT_TRUE(img2->OpenPNG("color_band_test.png")) << "Failed to read PNG";
@@ -79,39 +105,42 @@ TEST(ImageTest, ExactPNGMatch)
     delete img2;
 }
 
-TEST(ImageFileIOTest, OpenHandlesUppercaseExtension) {
+TEST_F(ImageTest, OpenHandlesUppercaseExtension) {
     Image img(10, 10);
     EXPECT_TRUE(img.SaveFile("test_uppercase.JPG"));
+    TrackFile("test_uppercase.JPG");
 
     Image loaded;
     EXPECT_TRUE(loaded.OpenFile("test_uppercase.JPG"));
 }
 
 
-TEST(ImageFileIOTest, OpenFailsOnMissingFile) {
+TEST_F(ImageTest, OpenFailsOnMissingFile) {
     Image img;
     EXPECT_FALSE(img.OpenFile("nonexistent.jpg"));
 }
 
 
-TEST(ImageFileIOTest, SaveFailsOnUnsupportedExtension) {
+TEST_F(ImageTest, SaveFailsOnUnsupportedExtension) {
     Image img(10, 10);
     EXPECT_FALSE(img.SaveFile("test.unsupported"));
+    TrackFile("test.unsupported"); // Track for cleanup, even if it fails
 }
 
-TEST(ImageFileIOTest, OpenFailsOnUnsupportedExtension) {
+TEST_F(ImageTest, OpenFailsOnUnsupportedExtension) {
     Image img;
     EXPECT_FALSE(img.OpenFile("test.unsupported"));
 }
 
 
-TEST(ImageFileIOTest, SaveAndLoadJPEGThroughGeneralInterface) {
+TEST_F(ImageTest, SaveAndLoadJPEGThroughGeneralInterface) {
     Image img(10, 10);
     img.SetPixalRed(2, 2, 90);
     img.SetPixalGreen(2, 2, 140);
     img.SetPixalBlue(2, 2, 190);
 
     EXPECT_TRUE(img.SaveFile("test_general.jpeg"));
+    TrackFile("test_general.jpeg");
 
     Image loaded;
     EXPECT_TRUE(loaded.OpenFile("test_general.jpeg"));
@@ -123,13 +152,14 @@ TEST(ImageFileIOTest, SaveAndLoadJPEGThroughGeneralInterface) {
 }
 
 
-TEST(ImageFileIOTest, SaveAndLoadPNGThroughGeneralInterface) {
+TEST_F(ImageTest, SaveAndLoadPNGThroughGeneralInterface) {
     Image img(10, 10);
     img.SetPixalRed(1, 1, 50);
     img.SetPixalGreen(1, 1, 100);
     img.SetPixalBlue(1, 1, 150);
 
     EXPECT_TRUE(img.SaveFile("test_general.png"));
+    TrackFile("test_general.png");
 
     Image loaded;
     EXPECT_TRUE(loaded.OpenFile("test_general.png"));
@@ -140,7 +170,7 @@ TEST(ImageFileIOTest, SaveAndLoadPNGThroughGeneralInterface) {
 }
 
 
-TEST(ImageSaveTest, SaveJPGReturnsTrueAndCreatesFile) {
+TEST_F(ImageTest, SaveJPGReturnsTrueAndCreatesFile) {
     int width = 3840;
     int height = 2160;
     int quality = 1;
@@ -151,25 +181,27 @@ TEST(ImageSaveTest, SaveJPGReturnsTrueAndCreatesFile) {
 
     // Call Save_jpg and assert it returns true
     EXPECT_TRUE(img.SaveJPEG(const_cast<char*>(filename), quality));
+    TrackFile(filename); // Track the file for cleanup
 
     // Optionally: Check if the file was created
     std::ifstream f(filename);
     EXPECT_TRUE(f.good());
 }
 
-TEST(ImageTest, ZeroSizeImage) {
+TEST_F(ImageTest, ZeroSizeImage) {
     Image img(0, 0);
     EXPECT_FALSE(img.SavePNG("zero.png"));  // Should not save
+    TrackFile("zero.png"); // Track for cleanup, even if it fails
 }
 
 
-TEST(ImageTest, ReadInvalidFile) {
+TEST_F(ImageTest, ReadInvalidFile) {
     Image img;
     EXPECT_FALSE(img.OpenPNG("non_existent_file.png"));
 }
 
 
-TEST(ImageTest, BoundsCheckIfImplemented) {
+TEST_F(ImageTest, BoundsCheckIfImplemented) {
     Image img(10, 10);
 
     // Expect the program to not crash or assert
@@ -179,13 +211,14 @@ TEST(ImageTest, BoundsCheckIfImplemented) {
 }
 
 
-TEST(ImageTest, SaveAndReadConsistency) {
+TEST_F(ImageTest, SaveAndReadConsistency) {
     Image img(32, 32);
     img.SetPixalRed(0, 0, 100);
     img.SetPixalGreen(0, 0, 150);
     img.SetPixalBlue(0, 0, 200);
 
     img.SavePNG("temp_test_image.png");
+    TrackFile("temp_test_image.png");
 
     Image loaded;
     ASSERT_TRUE(loaded.OpenPNG("temp_test_image.png"));
@@ -194,7 +227,7 @@ TEST(ImageTest, SaveAndReadConsistency) {
     EXPECT_EQ(loaded.GetPixalBlue(0, 0), 200);
 }
 
-TEST(ImageTest, SetAndGetPixelValues) {
+TEST_F(ImageTest, SetAndGetPixelValues) {
     Image img(10, 10);
     img.SetPixalRed(5, 5, 123);
     img.SetPixalGreen(5, 5, 45);
@@ -205,7 +238,7 @@ TEST(ImageTest, SetAndGetPixelValues) {
     EXPECT_EQ(img.GetPixalBlue(5, 5), 200);
 }
 
-TEST(ImageTest, ConstructorInitializesCorrectly) {
+TEST_F(ImageTest, ConstructorInitializesCorrectly) {
     Image img(100, 100);
     // Assuming (0,0) should be default initialized to 0
     EXPECT_EQ(img.GetPixalRed(0, 0), 0);
