@@ -132,6 +132,18 @@ TEST_F(ImageTest, OpenFailsOnUnsupportedExtension) {
     EXPECT_FALSE(img.OpenFile("test.unsupported"));
 }
 
+TEST_F(ImageTest, SaveFailsOnUnsupportedExtension2) {
+    Image img(10, 10);
+    EXPECT_FALSE(img.SaveFile("test."));
+    TrackFile("test."); // Track for cleanup, even if it fails
+}
+
+TEST_F(ImageTest, OpenFailsOnUnsupportedExtension2) {
+    Image img;
+    EXPECT_FALSE(img.OpenFile("test."));
+}
+
+
 
 TEST_F(ImageTest, SaveAndLoadJPEGThroughGeneralInterface) {
     Image img(10, 10);
